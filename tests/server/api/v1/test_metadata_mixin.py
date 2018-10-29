@@ -3,14 +3,15 @@ import json
 import pytest
 
 from tests.server.api.v1.fixtures import (
+    app,
+    http_request,
     handler,
     handler_auth,
-    http_request,
+    mock_stream,
+    mock_partial_stream,
     mock_file_metadata,
     mock_folder_children,
-    mock_partial_stream,
-    mock_revision_metadata,
-    mock_stream
+    mock_revision_metadata
 )
 from tests.utils import MockCoroutine
 from waterbutler.core.path import WaterButlerPath
@@ -26,11 +27,9 @@ class TestMetadataMixin:
         await handler.header_file_metadata()
 
         assert handler._headers['Content-Length'] == '1337'
-        assert handler._headers['Last-Modified'] == b'Wed, 25 Sep 1991 18:20:30 GMT'
-        assert handler._headers['Content-Type'] == b'application/octet-stream'
-        expected = bytes(json.dumps(mock_file_metadata.json_api_serialized(handler.resource)),
-                         'latin-1')
-        assert handler._headers['X-Waterbutler-Metadata'] == expected
+        assert handler._headers['Last-Modified'] == 'Wed, 25 Sep 1991 18:20:30 GMT'
+        assert handler._headers['Content-Type'] == 'application/octet-stream'
+        assert handler._headers['X-Waterbutler-Metadata'] == json.dumps(mock_file_metadata.json_api_serialized(handler.resource))
 
     @pytest.mark.asyncio
     async def test_get_folder(self, handler, mock_folder_children):
@@ -147,8 +146,7 @@ class TestMetadataMixin:
 
         await handler.download_file()
 
-        assert handler._headers['Content-Range'] == bytes(mock_partial_stream.content_range,
-                                                          'latin-1')
+        assert handler._headers['Content-Range'] == mock_partial_stream.content_range
         assert handler.get_status() == 206
         handler.write_stream.assert_called_once_with(mock_partial_stream)
 
@@ -175,7 +173,7 @@ class TestMetadataMixin:
         await handler.download_file()
 
         handler.write_stream.assert_called_once_with(mock_stream)
-        assert handler._headers['Content-Type'] == bytes(mimetype, 'latin-1')
+        assert handler._headers['Content-Type'] == mimetype
 
     @pytest.mark.asyncio
     async def test_file_metadata(self, handler, mock_file_metadata):

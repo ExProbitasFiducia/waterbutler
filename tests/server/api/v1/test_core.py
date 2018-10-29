@@ -1,6 +1,7 @@
 from unittest import mock
 
 from tests.server.api.v1.fixtures import (
+    app,
     handler,
     http_request,
     mock_exc_info,

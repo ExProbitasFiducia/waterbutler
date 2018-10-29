@@ -3,14 +3,15 @@ from uuid import UUID
 
 import pytest
 
+from tests.utils import MockCoroutine, MockStream, MockWriter, MockProvider
 from tests.server.api.v1.fixtures import (
+    app,
     handler,
     handler_auth,
     http_request,
     patch_auth_handler,
     patch_make_provider_core
 )
-from tests.utils import MockCoroutine, MockProvider, MockStream, MockWriter
 from waterbutler.core.path import WaterButlerPath
 from waterbutler.server.api.v1.provider import ProviderHandler, list_or_value
 
@@ -33,7 +34,7 @@ class TestProviderHandler:
         await handler.prepare()
 
         # check that X-WATERBUTLER-REQUEST-ID is valid UUID
-        assert UUID(handler._headers['X-WATERBUTLER-REQUEST-ID'].decode('utf-8'), version=4)
+        assert UUID(handler._headers['X-WATERBUTLER-REQUEST-ID'], version=4)
 
     @pytest.mark.asyncio
     async def test_prepare_put(self, handler, patch_auth_handler, patch_make_provider_core,
@@ -47,7 +48,7 @@ class TestProviderHandler:
         assert handler.path == WaterButlerPath('/file', prepend=None)
 
         # check that X-WATERBUTLER-REQUEST-ID is valid UUID
-        assert UUID(handler._headers['X-WATERBUTLER-REQUEST-ID'].decode('utf-8'), version=4)
+        assert UUID(handler._headers['X-WATERBUTLER-REQUEST-ID'], version=4)
 
     @pytest.mark.asyncio
     async def test_prepare_stream(self, handler):

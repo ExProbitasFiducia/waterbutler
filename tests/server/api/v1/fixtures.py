@@ -5,8 +5,10 @@ import sys
 from unittest import mock
 
 import pytest
+from tornado.web import HTTPError
 from tornado.http1connection import HTTP1ConnectionParameters
 from tornado.httputil import HTTPServerRequest
+import tornado.testing
 from tornado.web import HTTPError
 
 import waterbutler
@@ -26,6 +28,11 @@ from waterbutler.tasks.exceptions import WaitTimeOutError
 
 
 @pytest.fixture
+def app():
+    return make_app(False)
+
+
+@pytest.fixture
 def http_request():
     mocked_http_request = HTTPServerRequest(
         uri='/v1/resources/test/providers/test/path/mock',
@@ -40,8 +47,8 @@ def http_request():
 
 
 @pytest.fixture
-def handler(http_request):
-    mocked_handler = ProviderHandler(make_app(True), http_request)
+def handler(app, http_request):
+    mocked_handler = ProviderHandler(app, http_request)
 
     mocked_handler.path_kwargs = {
         'provider': 'test',
