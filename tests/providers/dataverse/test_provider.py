@@ -45,70 +45,81 @@ class TestValidatePath:
 
     @pytest.mark.asyncio
     @pytest.mark.aiohttpretty
-    async def test_validate_v1_path_file(self, provider, native_dataset_metadata):
-        draft_url = provider.build_url(dvs.JSON_BASE_URL.format(provider._id, 'latest'),
-                                       key=provider.token)
-        published_url = provider.build_url(dvs.JSON_BASE_URL.format(provider._id,
-                                                                    'latest-published'),
-                                           key=provider.token)
+    async def test_validate_path_file(self, provider, native_dataset_metadata):
+        """
+        """
+        draft_url = provider.build_url(
+            dvs.JSON_BASE_URL.format(provider._id, 'latest'),
+            key=provider.token
+        )
+        published_url = provider.build_url(
+            dvs.JSON_BASE_URL.format(provider._id, 'latest-published'),
+            key=provider.token
+        )
 
-        aiohttpretty.register_json_uri('GET',
-                                       draft_url,
-                                       status=200,
-                                       body=native_dataset_metadata)
-        aiohttpretty.register_json_uri('GET',
-                                       published_url,
-                                       status=200,
-                                       body=native_dataset_metadata)
+        aiohttpretty.register_json_uri(
+            'GET',
+            draft_url,
+            status=200,
+            body=native_dataset_metadata
+        )
+        aiohttpretty.register_json_uri(
+            'GET',
+            published_url,
+            status=200,
+            body=native_dataset_metadata
+        )
 
         path = '/21'
 
         try:
-            wb_path_v1 = await provider.validate_v1_path(path)
+            wb_path = await provider.validate_path(path)
         except Exception as exc:
             pytest.fail(str(exc))
 
         with pytest.raises(exceptions.NotFoundError) as exc:
-            await provider.validate_v1_path(path + '/')
+            await provider.validate_path(path + '/')
 
         assert exc.value.code == client.NOT_FOUND
 
-        wb_path_v0 = await provider.validate_path(path)
-
-        assert wb_path_v1 == wb_path_v0
-
     @pytest.mark.asyncio
     @pytest.mark.aiohttpretty
-    async def test_validate_v1_path_folder(self, provider):
+    async def test_validate_path_folder(self, provider):
+        """
+        """
         try:
-            wb_path_v1 = await provider.validate_v1_path('/')
+            wb_path = await provider.validate_path('/')
         except Exception as exc:
             pytest.fail(str(exc))
-
-        wb_path_v0 = await provider.validate_path('/')
-
-        assert wb_path_v1 == wb_path_v0
 
     @pytest.mark.asyncio
     @pytest.mark.aiohttpretty
     async def test_revalidate_path(self, provider, native_dataset_metadata):
-        draft_url = provider.build_url(dvs.JSON_BASE_URL.format(provider._id, 'latest'),
-                                       key=provider.token)
-        published_url = provider.build_url(dvs.JSON_BASE_URL.format(provider._id,
-                                                                    'latest-published'),
-                                           key=provider.token)
+        """
+        """
+        draft_url = provider.build_url(
+            dvs.JSON_BASE_URL.format(provider._id, 'latest'),
+            key=provider.token
+        )
+        published_url = provider.build_url(
+            dvs.JSON_BASE_URL.format(provider._id, 'latest-published'),
+            key=provider.token
+        )
 
-        aiohttpretty.register_json_uri('GET',
-                                       draft_url,
-                                       status=200,
-                                       body=native_dataset_metadata)
-        aiohttpretty.register_json_uri('GET',
-                                       published_url,
-                                       status=200,
-                                       body=native_dataset_metadata)
+        aiohttpretty.register_json_uri(
+            'GET',
+            draft_url,
+            status=200,
+            body=native_dataset_metadata
+        )
+        aiohttpretty.register_json_uri(
+            'GET',
+            published_url,
+            status=200,
+            body=native_dataset_metadata
+        )
 
-
-        base = await provider.validate_v1_path('/')
+        base = await provider.validate_path('/')
 
         wb_path = await provider.revalidate_path(base, '/thefile.txt')
         assert wb_path.name == 'thefile.txt'
@@ -122,23 +133,32 @@ class TestCRUD:
     @pytest.mark.asyncio
     @pytest.mark.aiohttpretty
     async def test_download(self, provider, native_dataset_metadata):
+        """
+        """
         path = '/21'
         url = provider.build_url(dvs.DOWN_BASE_URL, path, key=provider.token)
-        draft_url = provider.build_url(dvs.JSON_BASE_URL.format(provider._id, 'latest'),
-                                       key=provider.token)
-        published_url = provider.build_url(dvs.JSON_BASE_URL.format(provider._id,
-                                                                    'latest-published'),
-                                           key=provider.token)
+        draft_url = provider.build_url(
+            dvs.JSON_BASE_URL.format(provider._id, 'latest'),
+            key=provider.token
+        )
+        published_url = provider.build_url(
+            dvs.JSON_BASE_URL.format(provider._id, 'latest-published'),
+            key=provider.token
+        )
 
         aiohttpretty.register_uri('GET', url, body=b'better', auto_length=True)
-        aiohttpretty.register_json_uri('GET',
-                                       draft_url,
-                                       status=200,
-                                       body=native_dataset_metadata)
-        aiohttpretty.register_json_uri('GET',
-                                       published_url,
-                                       status=200,
-                                       body=native_dataset_metadata)
+        aiohttpretty.register_json_uri(
+            'GET',
+            draft_url,
+            status=200,
+            body=native_dataset_metadata
+        )
+        aiohttpretty.register_json_uri(
+            'GET',
+            published_url,
+            status=200,
+            body=native_dataset_metadata
+        )
 
         path = await provider.validate_path(path)
 
@@ -150,19 +170,31 @@ class TestCRUD:
     @pytest.mark.asyncio
     @pytest.mark.aiohttpretty
     async def test_download_not_found(self, provider, native_dataset_metadata):
+        """
+        """
         path = '/21'
         url = provider.build_url(dvs.DOWN_BASE_URL, path, key=provider.token)
         aiohttpretty.register_uri('GET', url, status=404)
-        draft_url = provider.build_url(dvs.JSON_BASE_URL.format(provider._id, 'latest'),
-                                       key=provider.token)
-        aiohttpretty.register_json_uri('GET', draft_url, status=200, body=native_dataset_metadata)
-        published_url = provider.build_url(dvs.JSON_BASE_URL.format(provider._id,
-                                                                    'latest-published'),
-                                           key=provider.token)
-        aiohttpretty.register_json_uri('GET',
-                                       published_url,
-                                       status=200,
-                                       body=native_dataset_metadata)
+        draft_url = provider.build_url(
+            dvs.JSON_BASE_URL.format(provider._id, 'latest'),
+            key=provider.token
+        )
+        aiohttpretty.register_json_uri(
+            'GET',
+            draft_url,
+            status=200,
+            body=native_dataset_metadata
+        )
+        published_url = provider.build_url(
+            dvs.JSON_BASE_URL.format(provider._id, 'latest-published'),
+            key=provider.token
+        )
+        aiohttpretty.register_json_uri(
+            'GET',
+            published_url,
+            status=200,
+            body=native_dataset_metadata
+        )
 
         path = await provider.validate_path(path)
 
@@ -172,18 +204,29 @@ class TestCRUD:
     @pytest.mark.asyncio
     @pytest.mark.aiohttpretty
     async def test_download_invalid_path(self, provider, native_dataset_metadata):
+        """
+        """
         path = '/50'
-        draft_url = provider.build_url(dvs.JSON_BASE_URL.format(provider._id,
-                                                                'latest'),
-                                       key=provider.token)
-        aiohttpretty.register_json_uri('GET', draft_url, status=200, body=native_dataset_metadata)
-        published_url = provider.build_url(dvs.JSON_BASE_URL.format(provider._id,
-                                                                    'latest-published'),
-                                           key=provider.token)
-        aiohttpretty.register_json_uri('GET',
-                                       published_url,
-                                       status=200,
-                                       body=native_dataset_metadata)
+        draft_url = provider.build_url(
+            dvs.JSON_BASE_URL.format(provider._id, 'latest'),
+            key=provider.token
+        )
+        aiohttpretty.register_json_uri(
+            'GET',
+            draft_url,
+            status=200,
+            body=native_dataset_metadata
+        )
+        published_url = provider.build_url(
+            dvs.JSON_BASE_URL.format(provider._id, 'latest-published'),
+            key=provider.token
+        )
+        aiohttpretty.register_json_uri(
+            'GET',
+            published_url,
+            status=200,
+            body=native_dataset_metadata
+        )
 
         path = await provider.validate_path(path)
 
@@ -194,6 +237,8 @@ class TestCRUD:
     @pytest.mark.aiohttpretty
     async def test_upload_create(self, provider, file_stream, native_file_metadata,
                                  empty_native_dataset_metadata, native_dataset_metadata):
+        """
+        """
         path = '/thefile.txt'
         url = provider.build_url(dvs.EDIT_MEDIA_BASE_URL, 'study', provider.doi)
         aiohttpretty.register_uri('POST', url, status=201)

@@ -93,6 +93,9 @@ class TestDownload:
                                                  'download', version=None, mode=None)
 
         aiohttpretty.register_json_uri('GET', uri,  body=download_response, params=params)
+        inner_provider.validate_path = utils.MockCoroutine(
+            return_value=WaterButlerPath('/043be9ff919762f0dc36fff0222cd90c753ce28b39feb52112be9360c476ef88')
+        )
 
         await provider.download(download_path)
 
@@ -113,10 +116,18 @@ class TestDownload:
         provider, inner_provider = provider_and_mock_one
 
         provider.auth = {}
-        url, params = build_signed_url_without_auth(provider, 'GET', download_path.identifier,
-                                                    'download', version=None, mode=None)
+        url, params = build_signed_url_without_auth(
+            provider,
+            'GET',
+            download_path.identifier,
+            'download',
+            version=None,
+            mode=None
+        )
         aiohttpretty.register_json_uri('GET', url, params=params, body=download_response)
-
+        inner_provider.validate_path = utils.MockCoroutine(
+            return_value=WaterButlerPath('/043be9ff919762f0dc36fff0222cd90c753ce28b39feb52112be9360c476ef88')
+        )
         await provider.download(download_path)
 
         assert provider.make_provider.called
@@ -126,8 +137,10 @@ class TestDownload:
 
         expected_path = WaterButlerPath('/' + download_response['data']['path'])
         expected_display_name = download_response['data']['name']
-        inner_provider.download.assert_called_once_with(path=expected_path,
-                                                        display_name=expected_display_name)
+        inner_provider.download.assert_called_once_with(
+            path=expected_path,
+            displayName=expected_display_name
+        )
 
     @pytest.mark.asyncio
     @pytest.mark.aiohttpretty
@@ -336,25 +349,16 @@ class TestIntraMoveCopy:
 
     @pytest.mark.asyncio
     @pytest.mark.aiohttpretty
-    @pytest.mark.parametrize('action, method_name', [
-        ('move', 'intra_move'),
-        ('copy', 'intra_copy'),
-    ])
-    async def test_intra_foo_folder(self, provider_one, provider_two, folder_children_metadata,
-                                    mock_time, action, method_name):
+    async def test_intra_copy_folder(self, provider_and_mock, provider_and_mock2,
+                                     folder_children_metadata, mock_time):
+        src_provider, src_mock = provider_and_mock
+        src_mock.intra_copy = src_provider.intra_copy
 
-        src_provider = provider_one
-        src_provider.delete = utils.MockCoroutine()
-        src_provider.validate_v1_path = utils.MockCoroutine()
-        src_provider._children_metadata = utils.MockCoroutine()
-
-        dest_provider = provider_two
-        dest_provider.delete = utils.MockCoroutine()
-        dest_provider.validate_v1_path = utils.MockCoroutine(
-            return_value=WaterButlerPath('/folder1/', _ids=('RootId', 'folder1'))
-        )
-        dest_provider._children_metadata = utils.MockCoroutine(
-            return_value=folder_children_metadata
+        dest_provider, dest_mock = provider_and_mock2
+        dest_mock.nid = 'abcde'
+        dest_mock._children_metadata = utils.MockCoroutine(return_value=folder_children_metadata)
+        dest_mock.validate_path = utils.MockCoroutine(
+            return_value=WaterButlerPath('/folder1/', _ids=('rootId', 'folder1'))
         )
 
         src_path = WaterButlerPath('/folder1/', _ids=['RootId', 'folder1'], folder=True)
@@ -380,11 +384,11 @@ class TestIntraMoveCopy:
         assert created
         assert isinstance(folder_meta, OsfStorageFolderMetadata)
         assert len(folder_meta.children) == 4
+        dest_mock._children_metadata.assert_called_once_with(WaterButlerPath('/folder1/'))
+        assert dest_mock.validate_path.call_count == 1
 
-        # these should be called on dest_provider (if at all), not src_provider
-        src_provider.delete.assert_not_called()
-        src_provider.validate_v1_path.assert_not_called()
-        src_provider._children_metadata.assert_not_called()
+        src_mock._children_metadata.assert_not_called()
+        src_mock.validate_path.assert_not_called()
 
         # delete isn't called, b/c dest_path doesn't already exist
         dest_provider.delete.assert_not_called()
@@ -435,10 +439,18 @@ class TestIntraMoveCopy:
         assert isinstance(file_meta, OsfStorageFileMetadata)
         assert file_meta.name == 'doc.rst'
 
-        # these should be called on dest_provider (if at all), not src_provider
-        src_provider.delete.assert_not_called()
-        src_provider.validate_v1_path.assert_not_called()
-        src_provider._children_metadata.assert_not_called()
+    @pytest.mark.asyncio
+    @pytest.mark.aiohttpretty
+    async def test_intra_copy_file_overwrite(self, provider_and_mock, provider_and_mock2,
+                                             mock_time):
+        src_provider, src_mock = provider_and_mock
+        src_mock.intra_copy = src_provider.intra_copy
+
+        dest_provider, dest_mock = provider_and_mock2
+        dest_mock.nid = 'abcde'
+        dest_mock.validate_path = utils.MockCoroutine(
+            return_value=WaterButlerPath('/file', _ids=('rootId', 'fileId'))
+        )
 
         # delete isn't called, b/c dest_path doesn't already exist
         # others aren't called b/c copied entity isa file
@@ -448,26 +460,18 @@ class TestIntraMoveCopy:
 
     @pytest.mark.asyncio
     @pytest.mark.aiohttpretty
-    @pytest.mark.parametrize('action, method_name', [
-        ('move', 'intra_move'),
-        ('copy', 'intra_copy'),
-    ])
-    async def test_intra_foo_folder_overwrite(self, provider_one, provider_two,
-                                              folder_children_metadata, mock_time, action,
-                                              method_name):
+    async def test_intra_move_folder(self, provider_and_mock, provider_and_mock2,
+                                     folder_children_metadata, mock_time):
+        src_provider, src_mock = provider_and_mock
+        assert src_provider.can_duplicate_names()
 
-        src_provider = provider_one
-        src_provider.delete = utils.MockCoroutine()
-        src_provider.validate_v1_path = utils.MockCoroutine()
-        src_provider._children_metadata = utils.MockCoroutine()
+        src_mock.intra_move = src_provider.intra_move
 
-        dest_provider = provider_two
-        dest_provider.delete = utils.MockCoroutine()
-        dest_provider.validate_v1_path = utils.MockCoroutine(
-            return_value=WaterButlerPath('/folder1/', _ids=('RootId', 'folder1'))
-        )
-        dest_provider._children_metadata = utils.MockCoroutine(
-            return_value=folder_children_metadata
+        dest_provider, dest_mock = provider_and_mock2
+        dest_mock.nid = 'abcde'
+        dest_mock._children_metadata = utils.MockCoroutine(return_value=folder_children_metadata)
+        dest_mock.validate_path = utils.MockCoroutine(
+            return_value=WaterButlerPath('/folder1/', _ids=('rootId', 'folder1'))
         )
 
         src_path = WaterButlerPath('/folder1/', _ids=['RootId', 'folder1'], folder=True)
@@ -493,110 +497,105 @@ class TestIntraMoveCopy:
         assert not created
         assert isinstance(folder_meta, OsfStorageFolderMetadata)
         assert len(folder_meta.children) == 4
+        dest_mock._children_metadata.assert_called_once_with(WaterButlerPath('/folder1/'))
+        assert dest_mock.validate_path.call_count == 1
 
-        # these should be called on dest_provider (if at all), not src_provider
-        src_provider.delete.assert_not_called()
-        src_provider.validate_v1_path.assert_not_called()
-        src_provider._children_metadata.assert_not_called()
+        src_mock._children_metadata.assert_not_called()
+        src_mock.validate_path.assert_not_called()
 
-        dest_provider.delete.assert_called_once_with(WaterButlerPath('/folder1/'))
-        dest_provider.validate_v1_path.assert_called_once_with('/folder1/')
-        dest_provider._children_metadata.assert_called_once_with(WaterButlerPath('/folder1/'))
+@pytest.mark.asyncio
+@pytest.mark.aiohttpretty
+@pytest.mark.parametrize('action, method_name', [
+    ('move', 'intra_move'),
+    ('copy', 'intra_copy'),
+])
+async def test_intra_foo_file_overwrite(self, provider_one, provider_two,
+                                        file_metadata, mock_time, action, method_name):
 
-    @pytest.mark.asyncio
-    @pytest.mark.aiohttpretty
-    @pytest.mark.parametrize('action, method_name', [
-        ('move', 'intra_move'),
-        ('copy', 'intra_copy'),
-    ])
-    async def test_intra_foo_file_overwrite(self, provider_one, provider_two,
-                                            file_metadata, mock_time, action, method_name):
+    src_provider = provider_one
+    src_provider.delete = utils.MockCoroutine()
+    src_provider.validate_v1_path = utils.MockCoroutine()
+    src_provider._children_metadata = utils.MockCoroutine()
 
-        src_provider = provider_one
-        src_provider.delete = utils.MockCoroutine()
-        src_provider.validate_v1_path = utils.MockCoroutine()
-        src_provider._children_metadata = utils.MockCoroutine()
+    dest_provider = provider_two
+    dest_provider.delete = utils.MockCoroutine()
+    dest_provider.validate_v1_path = utils.MockCoroutine()
+    dest_provider._children_metadata = utils.MockCoroutine()
 
-        dest_provider = provider_two
-        dest_provider.delete = utils.MockCoroutine()
-        dest_provider.validate_v1_path = utils.MockCoroutine()
-        dest_provider._children_metadata = utils.MockCoroutine()
+    src_path = WaterButlerPath('/test_file', _ids=['RootId', 'fileId'], folder=False)
+    dest_path = WaterButlerPath('/folder1/test_file',
+                                _ids=['RootId', 'folder1Id', 'doomedFile'],
+                                folder=False)
 
-        src_path = WaterButlerPath('/test_file', _ids=['RootId', 'fileId'], folder=False)
-        dest_path = WaterButlerPath('/folder1/test_file',
-                                    _ids=['RootId', 'folder1Id', 'doomedFile'],
-                                    folder=False)
+    data = json.dumps({
+        'user': src_provider.auth['id'],
+        'source': src_path.identifier,
+        'destination': {
+            'name': dest_path.name,
+            'node': dest_provider.nid,
+            'parent': dest_path.parent.identifier
+        }
+    })
 
-        data = json.dumps({
-            'user': src_provider.auth['id'],
-            'source': src_path.identifier,
-            'destination': {
-                'name': dest_path.name,
-                'node': dest_provider.nid,
-                'parent': dest_path.parent.identifier
-            }
-        })
+    url, params = build_signed_url_without_auth(src_provider, 'POST', 'hooks', action,
+                                                data=data)
+    aiohttpretty.register_json_uri('POST', url, params=params, status=201, body=file_metadata)
 
-        url, params = build_signed_url_without_auth(src_provider, 'POST', 'hooks', action,
-                                                    data=data)
-        aiohttpretty.register_json_uri('POST', url, params=params, status=201, body=file_metadata)
+    method = getattr(src_provider, method_name)
+    file_meta, created = await method(dest_provider, src_path, dest_path)
 
-        method = getattr(src_provider, method_name)
-        file_meta, created = await method(dest_provider, src_path, dest_path)
+    assert not created
+    assert isinstance(file_meta, OsfStorageFileMetadata)
+    assert file_meta.name == 'doc.rst'
 
-        assert not created
-        assert isinstance(file_meta, OsfStorageFileMetadata)
-        assert file_meta.name == 'doc.rst'
+    # these should be called on dest_provider (if at all), not src_provider
+    src_provider.delete.assert_not_called()
+    src_provider.validate_v1_path.assert_not_called()
+    src_provider._children_metadata.assert_not_called()
 
-        # these should be called on dest_provider (if at all), not src_provider
-        src_provider.delete.assert_not_called()
-        src_provider.validate_v1_path.assert_not_called()
-        src_provider._children_metadata.assert_not_called()
-
-        # vvp & _cm aren't called b/c copied entity isa file
-        dest_provider.delete.assert_called_once_with(WaterButlerPath('/folder1/test_file'))
-        dest_provider.validate_v1_path.assert_not_called()
-        dest_provider._children_metadata.assert_not_called()
+    # vvp & _cm aren't called b/c copied entity isa file
+    dest_provider.delete.assert_called_once_with(WaterButlerPath('/folder1/test_file'))
+    dest_provider.validate_v1_path.assert_not_called()
+    dest_provider._children_metadata.assert_not_called()
 
 
 class TestUtils:
 
-    def test_is_same_region_true(self, provider_one):
-        assert provider_one.is_same_region(provider_one)
+def test_is_same_region_true(self, provider_one):
+    assert provider_one.is_same_region(provider_one)
 
-    def test_is_same_region_false(self, provider_one, provider_two):
-        assert not provider_one.is_same_region(provider_two)
+def test_is_same_region_false(self, provider_one, provider_two):
+    assert not provider_one.is_same_region(provider_two)
 
-    def test_is_same_region_error(self, provider_one):
+def test_is_same_region_error(self, provider_one):
 
-        with pytest.raises(AssertionError) as exc:
-            provider_one.is_same_region(str())
-        assert str(exc.value) == 'Cannot compare region for providers of different provider ' \
-                                 'classes.'
+    with pytest.raises(AssertionError) as exc:
+        provider_one.is_same_region(str())
+    assert str(exc.value) == 'Cannot compare region for providers of different provider ' \
+                             'classes.'
 
-    def test_can_intra_move_copy_true(self, provider_one):
-        assert provider_one.can_intra_copy(provider_one)
-        assert provider_one.can_intra_move(provider_one)
+def test_can_intra_move_copy_true(self, provider_one):
+    assert provider_one.can_intra_copy(provider_one)
+    assert provider_one.can_intra_move(provider_one)
 
-    def test_can_intra_move_copy_false_region_mismatch(self, provider_one, provider_two):
-        assert not provider_one.can_intra_copy(provider_two)
-        assert not provider_one.can_intra_move(provider_two)
+def test_can_intra_move_copy_false_region_mismatch(self, provider_one, provider_two):
+    assert not provider_one.can_intra_copy(provider_two)
+    assert not provider_one.can_intra_move(provider_two)
 
-    def test_can_intra_move_copy_false_class_mismatch(self, provider_one):
-        assert not provider_one.can_intra_copy(str())
-        assert not provider_one.can_intra_move(str())
+def test_can_intra_move_copy_false_class_mismatch(self, provider_one):
+    assert not provider_one.can_intra_copy(str())
+    assert not provider_one.can_intra_move(str())
 
-    def test_can_duplicate_names(self, provider_one):
-        assert provider_one.can_duplicate_names()
+def test_can_duplicate_names(self, provider_one):
+    assert provider_one.can_duplicate_names()
 
 
 class TestValidatePath:
 
-    @pytest.mark.asyncio
-    @pytest.mark.aiohttpretty
-    async def test_validate_path_root(self, provider_one, root_path, mock_time):
-        assert root_path == await provider_one.validate_path('/')
-        assert root_path == await provider_one.validate_v1_path('/')
+@pytest.mark.asyncio
+@pytest.mark.aiohttpretty
+    async def test_validate_path_root(self, provider, root_path, mock_time):
+        assert root_path == await provider.validate_path('/')
 
     @pytest.mark.asyncio
     @pytest.mark.aiohttpretty
@@ -607,16 +606,14 @@ class TestValidatePath:
         aiohttpretty.register_json_uri('GET', url, params=params, status=200, body=file_lineage)
 
         with pytest.raises(exceptions.NotFoundError) as exc:
-            await provider_one.validate_v1_path('/' + file_id + '/')
+            await provider.validate_path('/' + file_id + '/')
 
         assert exc.value.code == client.NOT_FOUND
 
-        wb_path_v0 = await provider_one.validate_path('/' + file_id)
-        wb_path_v1 = await provider_one.validate_v1_path('/' + file_id)
+        wb_path = await provider.validate_path('/' + file_id)
 
         expected = WaterButlerPath('/doc.rst')
-        assert wb_path_v0 == expected
-        assert wb_path_v1 == expected
+        assert wb_path == expected
 
     @pytest.mark.asyncio
     @pytest.mark.aiohttpretty
@@ -627,14 +624,10 @@ class TestValidatePath:
         aiohttpretty.register_json_uri('GET', url, params=params, status=200, body=folder_lineage)
 
         with pytest.raises(exceptions.NotFoundError):
-            await provider_one.validate_v1_path('/' + folder_id)
+            await provider.validate_path('/' + folder_id)
 
-        wb_path_v0 = await provider_one.validate_path('/' + folder_id)
-        wb_path_v1 = await provider_one.validate_v1_path('/' + folder_id + '/')
-
-        expected = WaterButlerPath('/New Folder/')
-        assert wb_path_v0 == expected
-        assert wb_path_v1 == expected
+        wb_path = await provider.validate_path('/' + folder_id + '/')
+        assert wb_path == WaterButlerPath('/New Folder/')
 
     @pytest.mark.asyncio
     @pytest.mark.aiohttpretty
@@ -645,11 +638,7 @@ class TestValidatePath:
         aiohttpretty.register_json_uri('GET', url, params=params, status=404, body=file_lineage)
 
         with pytest.raises(exceptions.UnhandledProviderError):
-            await provider_one.validate_v1_path('/' + file_id)
-
-        wb_path_v0 = await provider_one.validate_path('/' + file_id)
-
-        assert wb_path_v0 == WaterButlerPath(file_lineage['data'][0]['path'], prepend=None)
+            await provider.validate_path('/' + file_id)
 
     @pytest.mark.asyncio
     @pytest.mark.aiohttpretty
@@ -679,24 +668,6 @@ class TestValidatePath:
 
         assert revalidated_path.name == 'one'
 
-    @pytest.mark.asyncio
-    @pytest.mark.aiohttpretty
-    async def test_validate_path_nested(self, provider_one, file_lineage, folder_lineage,
-                                        mock_time):
-        file_id = file_lineage['data'][0]['id']
-
-        url, params = build_signed_url_without_auth(provider_one, 'GET', file_id, 'lineage')
-        aiohttpretty.register_json_uri('GET', url, params=params, status=200, body=file_lineage)
-
-        url, params = build_signed_url_without_auth(provider_one, 'GET', 'New%20Folder', 'lineage')
-        aiohttpretty.register_json_uri('GET', url, params=params, status=200, body=folder_lineage)
-
-        wb_path_v0 = await provider_one.validate_path('New Folder/' + file_id)
-
-        assert len(wb_path_v0._parts) == 3
-        assert wb_path_v0.name == '59a9b628b7d1c903ab5a8f52'
-
-
 class TestUploads:
 
     def patch_uuid(self, monkeypatch):
@@ -714,6 +685,13 @@ class TestUploads:
 
         provider, inner_provider = provider_and_mock_one
         inner_provider.metadata = utils.MockCoroutine(return_value=utils.MockFileMetadata())
+        inner_provider.validate_path = utils.MockCoroutine(
+            side_effect=[
+                WaterButlerPath('/patched_path', _ids=('rootId', 'folder1')),
+                WaterButlerPath('/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', prepend=None),
+                WaterButlerPath('/patched_path', prepend=None)
+            ]
+        )
 
         res, created = await provider.upload(file_stream, upload_path)
 
@@ -728,8 +706,12 @@ class TestUploads:
         inner_provider.delete.assert_called_once_with(WaterButlerPath('/patched_path'))
         expected_path = WaterButlerPath('/' + file_stream.writers['sha256'].hexdigest)
         inner_provider.metadata.assert_called_once_with(expected_path)
-        inner_provider.upload.assert_called_once_with(file_stream, WaterButlerPath('/patched_path'),
-                                                      check_created=False, fetch_metadata=False)
+        inner_provider.upload.assert_called_once_with(
+            file_stream,
+            WaterButlerPath('/patched_path'),
+            check_created=False,
+            fetch_metadata=False
+        )
 
     @pytest.mark.asyncio
     @pytest.mark.aiohttpretty
@@ -741,6 +723,12 @@ class TestUploads:
         url = 'https://waterbutler.io/{}/children/'.format(upload_path.parent.identifier)
 
         inner_provider.move.return_value = (utils.MockFileMetadata(), True)
+        inner_provider.validate_path = utils.MockCoroutine(
+            side_effect=[
+                WaterButlerPath('/patched_path', _ids=('rootId', 'folder1')),
+                WaterButlerPath('/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', _ids=('rootId', 'folder1')),
+            ]
+        )
         inner_provider.metadata.side_effect = exceptions.MetadataError('Boom!', code=404)
 
         aiohttpretty.register_json_uri('POST', url, status=200, body=upload_response)
@@ -782,16 +770,90 @@ class TestUploads:
 
     @pytest.mark.asyncio
     @pytest.mark.aiohttpretty
-    async def test_upload_fails(self, monkeypatch, provider_and_mock_one, file_stream,
-                                upload_response, mock_time):
-        self.patch_uuid(monkeypatch)
-        provider, inner_provider = provider_and_mock_one
+    async def test_upload_and_tasks(self, monkeypatch, provider_and_mock, file_stream,
+                                    upload_response, credentials, settings, mock_time):
+        provider, inner_provider = provider_and_mock
+        basepath = 'waterbutler.providers.osfstorage.provider.{}'
+        path = WaterButlerPath('/' + upload_response['data']['name'],
+                               _ids=('Test', upload_response['data']['id']))
+        url = 'https://waterbutler.io/{}/children/'.format(path.parent.identifier)
+
+        # mock_parity = mock.Mock()
+        # mock_backup = mock.Mock()
+        inner_provider.move.return_value = (utils.MockFileMetadata(), True)
+        inner_provider.validate_path = utils.MockCoroutine(
+            side_effect=[
+                WaterButlerPath('/uniquepath', _ids=('rootId', 'folder1')),
+                WaterButlerPath('/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', _ids=('rootId', 'folder1')),
+                WaterButlerPath('/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', _ids=('rootId', 'folder1'))
+            ]
+        )
+        inner_provider.metadata.side_effect = exceptions.MetadataError('Boom!', code=404)
+
+        aiohttpretty.register_json_uri('POST', url, status=201, body=upload_response)
+        # monkeypatch.setattr(basepath.format('backup._push_file_archive'), mock_backup)
+        # monkeypatch.setattr(basepath.format('parity._parity_create_files'), mock_parity)
+        monkeypatch.setattr(basepath.format('settings.RUN_TASKS'), False)
+        monkeypatch.setattr(basepath.format('os.rename'), lambda *_: None)
+        monkeypatch.setattr(basepath.format('uuid.uuid4'), lambda: 'uniquepath')
+
+        res, created = await provider.upload(file_stream, path)
+
+        assert created is True
+        assert res.name == '[TEST]'
+        assert res.extra['version'] == 8
+        assert res.provider == 'osfstorage'
+        assert res.extra['downloads'] == 0
+        assert res.extra['checkout'] is None
+
+        inner_provider.upload.assert_called_once_with(
+            file_stream,
+            WaterButlerPath('/uniquepath'),
+            check_created=False,
+            fetch_metadata=False
+        )
+        # complete_path = os.path.join(
+        #     FILE_PATH_COMPLETE,
+        #     local_complete_dir,
+        #     file_stream.writers['sha256'].hexdigest
+        # )
+        # mock_parity.assert_called_once_with(
+        #     complete_path,
+        #     upload_response['version'],
+        #     'https://waterbutler.io/hooks/metadata/',
+        #     credentials['parity'],
+        #     settings['parity']
+        # )
+        # mock_backup.assert_called_once_with(
+        #     complete_path,
+        #     upload_response['version'],
+        #     'https://waterbutler.io/hooks/metadata/',
+        #     credentials['archive'],
+        #     settings['archive']
+        # )
+        expected_path = WaterButlerPath('/' + file_stream.writers['sha256'].hexdigest)
+        #inner_provider.metadata.assert_called_once_with(expected_path)
+        inner_provider.move.assert_called_once_with(
+            inner_provider,
+            WaterButlerPath('/uniquepath'),
+            expected_path
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.aiohttpretty
+    async def test_upload_fails(self, monkeypatch, provider_and_mock, file_stream, upload_response,
+                                mock_time):
+        self.patch_tasks(monkeypatch)
+        provider, inner_provider = provider_and_mock
         path = WaterButlerPath('/{}'.format(upload_response['data']['name']),
                                _ids=('Test', upload_response['data']['id']))
         url = 'https://waterbutler.io/{}/children/'.format(path.parent.identifier)
 
         aiohttpretty.register_json_uri('POST', url, status=201, body=upload_response)
         inner_provider.metadata = utils.MockCoroutine(return_value=utils.MockFileMetadata())
+        inner_provider.validate_path = utils.MockCoroutine(
+            return_value=WaterButlerPath('/patched_path', _ids=('rootId', 'folder1'))
+        )
         inner_provider.upload.side_effect = Exception()
 
         with pytest.raises(Exception):

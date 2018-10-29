@@ -122,7 +122,9 @@ class DropboxProvider(provider.BaseProvider):
                 raise pd_exceptions.DropboxNamingConflictError(error_path)
         raise pd_exceptions.DropboxUnhandledConflictError(str(data))
 
-    async def validate_v1_path(self, path: str, **kwargs) -> WaterButlerPath:
+    async def validate_path(self, path: str, **kwargs) -> WaterButlerPath:
+        """Validate a path
+        """
         if path == '/':
             return WaterButlerPath(path, prepend=self.folder)
         implicit_folder = path.endswith('/')
@@ -134,9 +136,6 @@ class DropboxProvider(provider.BaseProvider):
         explicit_folder = data['.tag'] == 'folder'
         if explicit_folder != implicit_folder:
             raise core_exceptions.NotFoundError(str(path))
-        return WaterButlerPath(path, prepend=self.folder)
-
-    async def validate_path(self, path: str, **kwargs) -> WaterButlerPath:
         return WaterButlerPath(path, prepend=self.folder)
 
     def can_duplicate_names(self) -> bool:

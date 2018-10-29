@@ -202,13 +202,39 @@ def file_stream(file_like):
 
 
 @pytest.fixture
-def provider_one(auth, credentials, settings_region_one):
-    return OSFStorageProvider(auth, credentials, settings_region_one)
+def provider_and_mock(monkeypatch, auth, credentials, settings):
+    mock_provider = utils.MockProvider1({}, {}, {})
+
+    mock_provider.copy = utils.MockCoroutine()
+    mock_provider.move = utils.MockCoroutine()
+    mock_provider.delete = utils.MockCoroutine()
+    mock_provider.upload = utils.MockCoroutine()
+    mock_provider.download = utils.MockCoroutine()
+    mock_provider.metadata = utils.MockCoroutine()
+    mock_provider.validate_path = utils.MockCoroutine()
+    mock_provider._children_metadata = utils.MockCoroutine()
+
+    mock_make_provider = mock.Mock(return_value=mock_provider)
+    monkeypatch.setattr(OSFStorageProvider, 'make_provider', mock_make_provider)
+    return OSFStorageProvider(auth, credentials, settings), mock_provider
 
 
 @pytest.fixture
-def provider_two(auth, credentials, settings_region_two):
-    return OSFStorageProvider(auth, credentials, settings_region_two)
+def provider_and_mock2(monkeypatch, auth, credentials, settings):
+    mock_provider = utils.MockProvider1({}, {}, {})
+
+    mock_provider.copy = utils.MockCoroutine()
+    mock_provider.move = utils.MockCoroutine()
+    mock_provider.delete = utils.MockCoroutine()
+    mock_provider.upload = utils.MockCoroutine()
+    mock_provider.download = utils.MockCoroutine()
+    mock_provider.metadata = utils.MockCoroutine()
+    mock_provider.validate_path = utils.MockCoroutine()
+    mock_provider._children_metadata = utils.MockCoroutine()
+
+    mock_make_provider = mock.Mock(return_value=mock_provider)
+    monkeypatch.setattr(OSFStorageProvider, 'make_provider', mock_make_provider)
+    return OSFStorageProvider(auth, credentials, settings), mock_provider
 
 
 @pytest.fixture

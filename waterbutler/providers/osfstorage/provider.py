@@ -37,13 +37,23 @@ class OSFStorageProvider(provider.BaseProvider):
     NAME = 'osfstorage'
 
     def __init__(self, auth, credentials, settings):
+        """Initialize the provider instance
+        """
         super().__init__(auth, credentials, settings)
         self.nid = settings['nid']
         self.root_id = settings['rootId']
         self.BASE_URL = settings['baseUrl']
         self.provider_name = settings['storage'].get('provider')
 
-    async def validate_v1_path(self, path, **kwargs):
+        self.parity_settings = settings.get('parity')
+        self.parity_credentials = credentials.get('parity')
+
+        self.archive_settings = settings.get('archive')
+        self.archive_credentials = credentials.get('archive')
+
+    async def validate_path(self, path, **kwargs):
+        """Validate a path
+        """
         if path == '/':
             return WaterButlerPath('/', _ids=[self.root_id], folder=True)
 
@@ -64,37 +74,6 @@ class OSFStorageProvider(provider.BaseProvider):
         names, ids = zip(*[(x['name'], x['id']) for x in reversed(data['data'])])
 
         return WaterButlerPath('/'.join(names), _ids=ids, folder=explicit_folder)
-
-    async def validate_path(self, path, **kwargs):
-        if path == '/':
-            return WaterButlerPath('/', _ids=[self.root_id], folder=True)
-
-        ends_with_slash = path.endswith('/')
-
-        try:
-            path, name = path.strip('/').split('/')
-        except ValueError:
-            path, name = path, None
-
-        async with self.signed_request(
-            'GET',
-            self.build_url(path, 'lineage'),
-            expects=(200, 404)
-        ) as resp:
-
-            if resp.status == 404:
-                return WaterButlerPath(path, _ids=(self.root_id, None), folder=path.endswith('/'))
-
-            data = await resp.json()
-
-        is_folder = data['data'][0]['kind'] == 'folder'
-        names, ids = zip(*[(x['name'], x['id']) for x in reversed(data['data'])])
-        if name is not None:
-            ids += (None, )
-            names += (name, )
-            is_folder = ends_with_slash
-
-        return WaterButlerPath('/'.join(names), _ids=ids, folder=is_folder)
 
     async def revalidate_path(self, base, path, folder=False):
         assert base.is_dir
@@ -148,10 +127,68 @@ class OSFStorageProvider(provider.BaseProvider):
         return isinstance(other, self.__class__) and self.is_same_region(other)
 
     async def intra_move(self, dest_provider, src_path, dest_path):
-        return await self._do_intra_move_or_copy('move', dest_provider, src_path, dest_path)
+        created = True
+        if dest_path.identifier:
+            created = False
+            await dest_provider.delete(dest_path)
+
+        async with self.signed_request(
+            'POST',
+            self.build_url('hooks', 'move'),
+            data=json.dumps({
+                'user': self.auth['id'],
+                'source': src_path.identifier,
+                'destination': {
+                    'name': dest_path.name,
+                    'node': dest_provider.nid,
+                    'parent': dest_path.parent.identifier
+                }
+            }),
+            headers={'Content-Type': 'application/json'},
+            expects=(200, 201)
+        ) as resp:
+            data = await resp.json()
+
+        if data['kind'] == 'file':
+            return OsfStorageFileMetadata(data, str(dest_path)), dest_path.identifier is None
+
+        folder_meta = OsfStorageFolderMetadata(data, str(dest_path))
+        dest_path = await dest_provider.validate_path(data['path'])
+        folder_meta.children = await dest_provider._children_metadata(dest_path)
+
+        return folder_meta, created
 
     async def intra_copy(self, dest_provider, src_path, dest_path):
-        return await self._do_intra_move_or_copy('copy', dest_provider, src_path, dest_path)
+        created = True
+        if dest_path.identifier:
+            created = False
+            await dest_provider.delete(dest_path)
+
+        async with self.signed_request(
+            'POST',
+            self.build_url('hooks', 'copy'),
+            data=json.dumps({
+                'user': self.auth['id'],
+                'source': src_path.identifier,
+                'destination': {
+                    'name': dest_path.name,
+                    'node': dest_provider.nid,
+                    'parent': dest_path.parent.identifier
+                }
+            }),
+            headers={'Content-Type': 'application/json'},
+            expects=(200, 201)
+        ) as resp:
+            data = await resp.json()
+
+        if data['kind'] == 'file':
+            return OsfStorageFileMetadata(data, str(dest_path)), dest_path.identifier is None
+
+        folder_meta = OsfStorageFolderMetadata(data, str(dest_path))
+        dest_path = await dest_provider.validate_path(data['path'])
+        folder_meta.children = await dest_provider._children_metadata(dest_path)
+
+        return folder_meta, created
 
     def build_signed_url(self, method, url, data=None, params=None, ttl=100, **kwargs):
         signer = signing.Signer(settings.HMAC_SECRET, settings.HMAC_ALGORITHM)
