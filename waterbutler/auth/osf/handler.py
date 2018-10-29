@@ -1,13 +1,12 @@
 import datetime
 
+import aiohttp
 import jwe
 import jwt
-import aiohttp
 
-from waterbutler.core import exceptions
 from waterbutler.auth.osf import settings
-from waterbutler.core.auth import (BaseAuthHandler,
-                                   AuthType)
+from waterbutler.core import exceptions
+from waterbutler.core.auth import AuthType, BaseAuthHandler
 from waterbutler.settings import MFR_IDENTIFYING_HEADER
 
 

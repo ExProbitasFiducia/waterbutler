@@ -1,23 +1,20 @@
-import os
-import json
-import uuid
-import typing
 import hashlib
+import json
 import logging
+import os
+import typing
+import uuid
 
-from waterbutler.core import utils
-from waterbutler.core import signing
-from waterbutler.core import streams
-from waterbutler.core import provider
-from waterbutler.core import exceptions
+from waterbutler.core import exceptions, provider, signing, streams, utils
 from waterbutler.core.path import WaterButlerPath
 from waterbutler.core.metadata import BaseMetadata
 from waterbutler.core.utils import RequestHandlerContext
-
 from waterbutler.providers.osfstorage import settings
-from waterbutler.providers.osfstorage.metadata import OsfStorageFileMetadata
-from waterbutler.providers.osfstorage.metadata import OsfStorageFolderMetadata
-from waterbutler.providers.osfstorage.metadata import OsfStorageRevisionMetadata
+from waterbutler.providers.osfstorage.metadata import (
+    OsfStorageFileMetadata,
+    OsfStorageFolderMetadata,
+    OsfStorageRevisionMetadata
+)
 
 logger = logging.getLogger(__name__)
 

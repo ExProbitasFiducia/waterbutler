@@ -1,14 +1,18 @@
-from uuid import UUID
 from unittest import mock
+from uuid import UUID
 
 import pytest
 
+from tests.server.api.v1.fixtures import (
+    handler,
+    handler_auth,
+    http_request,
+    patch_auth_handler,
+    patch_make_provider_core
+)
+from tests.utils import MockCoroutine, MockProvider, MockStream, MockWriter
 from waterbutler.core.path import WaterButlerPath
 from waterbutler.server.api.v1.provider import ProviderHandler, list_or_value
-
-from tests.utils import MockCoroutine, MockStream, MockWriter, MockProvider
-from tests.server.api.v1.fixtures import (http_request, handler, patch_auth_handler, handler_auth,
-                                          patch_make_provider_core)
 
 
 class TestUtils:
@@ -244,48 +248,3 @@ class TestProviderHandlerFinish:
 
         assert handler.on_finish() is None
         handler._send_hook.assert_called_once_with('delete')
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize('method', [
-        ('HEAD'),
-        ('OPTIONS'),
-    ])
-    async def test_dont_send_hook_for_method(self, handler, method):
-        """Not all HTTP methods merit a callback."""
-
-        handler.request.method = method
-        handler._send_hook = mock.Mock()
-
-        assert handler.on_finish() is None
-        assert not handler._send_hook.called
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize('status', [
-        (202), (206),
-        (303),
-        (400), (401), (403),
-        (500), (501), (502),
-    ])
-    async def test_dont_send_hook_for_status(self, handler, status):
-        """Callbacks are only called for successful, entirely complete respsonses.  See comments
-        in `on_finish` for further explanation."""
-
-        handler._status_code = status
-        handler._send_hook = mock.Mock()
-
-        assert handler.on_finish() is None
-        assert not handler._send_hook.called
-
-    @pytest.mark.asyncio
-    async def test_logging_direct_partial_download_file(self, handler):
-        """For now, make sure partial+direct download requests get logged.  Behaviour may be
-        changed in the future."""
-
-        handler.request.method = 'GET'
-        handler.path = WaterButlerPath('/file')
-        handler._status_code = 302
-        handler.request.headers['Range'] = 'fake-range'
-        handler._send_hook = mock.Mock()
-
-        assert handler.on_finish() is None
-        handler._send_hook.assert_called_once_with('download_file')
