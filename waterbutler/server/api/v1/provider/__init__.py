@@ -82,7 +82,7 @@ class ProviderHandler(core.BaseHandler, CreateMixin, MetadataMixin, MoveCopyMixi
                 self.auth['credentials'],
                 self.auth['settings']
             )
-            self.path = await self.provider.validate_v1_path(
+            self.path = await self.provider.validate_path(
                 self.path,
                 **self.arguments
             )

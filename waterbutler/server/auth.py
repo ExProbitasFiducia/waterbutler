@@ -14,7 +14,16 @@ class AuthHandler:
             name_order=True,
         )
 
-    async def get(self, resource, provider, request, action=None, auth_type=AuthType.SOURCE):
+    async def get(
+        self,
+        resource,
+        provider,
+        request,
+        action=None,
+        auth_type=AuthType.SOURCE,
+        path='',
+        version=None
+    ):
         for extension in self.manager.extensions:
             credential = await extension.obj.get(
                 resource,

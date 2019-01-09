@@ -1,4 +1,4 @@
-version: "3"
+version: "3.4"
 
 services:
   wb_requirements:
@@ -14,9 +14,9 @@ services:
         cp -Rf -p /usr/local/lib/python3.6 /
     restart: 'no'
     volumes:
+      - ./waterbutler:/code:cached
       - wb_requirements_vol:/python3.6
       - wb_requirements_local_bin_vol:/usr/local/bin
-      - wb-sync:/code:nocopy
 
   wb:
     #image: quay.io/centerforopenscience/wb:develop
@@ -27,13 +27,13 @@ services:
     ports:
       - 7777:7777
     env_file:
-      - .docker-compose.wb.env
+      - ./waterbutler/.docker-compose.env
     volumes:
+      - ./waterbutler:/code:cached
       - wb_requirements_vol:/usr/local/lib/python3.6
       - wb_requirements_local_bin_vol:/usr/local/bin
       - osfstoragecache_vol:/code/website/osfstoragecache
       - wb_tmp_vol:/tmp
-      - wb-sync:/code:nocopy
     stdin_open: true
 
   worker:
@@ -48,12 +48,12 @@ services:
     environment:
       C_FORCE_ROOT: 1
     env_file:
-      - .docker-compose.wb.env
+      - ./waterbutler/.docker-compose.env
     volumes:
+      - ./waterbutler:/code:cached
       - wb_requirements_vol:/usr/local/lib/python3.6
       - osfstoragecache_vol:/code/website/osfstoragecache
       - wb_tmp_vol:/tmp
-      - wb-sync:/code:nocopy
     stdin_open: true
 
   # wb_flower:
@@ -65,8 +65,3 @@ services:
   #   # Use non-default port to avoid conflict with OSF flower
   #   ports:
   #     - 5556:5556
-
-volumes:
-
-  wb-sync:
-    external: true

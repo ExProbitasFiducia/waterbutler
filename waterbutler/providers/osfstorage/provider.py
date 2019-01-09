@@ -562,7 +562,7 @@ class OSFStorageProvider(provider.BaseProvider):
             return OsfStorageFileMetadata(data, str(dest_path)), dest_path.identifier is None
 
         folder_meta = OsfStorageFolderMetadata(data, str(dest_path))
-        dest_path = await dest_provider.validate_v1_path(data['path'])
+        dest_path = await dest_provider.validate_path(data['path'])
         folder_meta.children = await dest_provider._children_metadata(dest_path)
 
         return folder_meta, created

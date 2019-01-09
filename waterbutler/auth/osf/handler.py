@@ -66,7 +66,16 @@ class OsfAuthHandler(BaseAuthHandler):
         except (jwt.InvalidTokenError, KeyError):
             raise exceptions.AuthError(data, code=response.status)
 
-    async def get(self, resource, provider, request, action=None, auth_type=AuthType.SOURCE):
+    async def get(
+        self,
+        resource,
+        provider,
+        request,
+        action=None,
+        auth_type=AuthType.SOURCE,
+        path='',
+        version=None
+    ):
         """Used for v1"""
         method = request.method.lower()
 

@@ -1,4 +1,4 @@
-FROM python:3.6-slim-stretch
+FROM python:3.6.7-slim-stretch
 
 RUN usermod -d /home www-data && chown www-data:www-data /home
 
@@ -29,14 +29,14 @@ RUN apt-get update \
       # GOSU
       B42F6819007F00F88E364FD4036A9C25BF357DD4 \
     ; do \
-      gpg --keyserver hkp://ipv4.pool.sks-keyservers.net:80 --recv-keys "$key" || \
-      gpg --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-keys "$key" || \
-      gpg --keyserver hkp://pgp.mit.edu:80 --recv-keys "$key" || \
-      gpg --keyserver hkp://keyserver.pgp.com:80 --recv-keys "$key" \
+      gpg --no-tty --keyserver hkp://ipv4.pool.sks-keyservers.net:80 --recv-keys "$key" || \
+      gpg --no-tty --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-keys "$key" || \
+      gpg --no-tty --keyserver hkp://pgp.mit.edu:80 --recv-keys "$key" || \
+      gpg --no-tty --keyserver hkp://keyserver.pgp.com:80 --recv-keys "$key" \
     ; done \
     && curl -o /usr/local/bin/gosu -SL "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$(dpkg --print-architecture)" \
   	&& curl -o /usr/local/bin/gosu.asc -SL "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$(dpkg --print-architecture).asc" \
-  	&& gpg --verify /usr/local/bin/gosu.asc \
+  	&& gpg --no-tty --verify /usr/local/bin/gosu.asc \
   	&& rm /usr/local/bin/gosu.asc \
   	&& chmod +x /usr/local/bin/gosu \
     && apt-get clean \

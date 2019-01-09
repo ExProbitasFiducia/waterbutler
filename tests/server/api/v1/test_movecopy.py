@@ -18,6 +18,7 @@ from tests.server.api.v1.fixtures import (
     serialized_request
 )
 
+from waterbutler.core.exceptions import InvalidParameters
 
 @pytest.mark.usefixtures('patch_auth_handler', 'patch_make_provider_move_copy')
 class TestMoveOrCopy:
@@ -29,7 +30,7 @@ class TestMoveOrCopy:
     async def test_move_or_copy_invalid_action(self, handler):
         handler._json = {'action': 'invalid'}
 
-        with pytest.raises(exceptions.InvalidParameters) as exc:
+        with pytest.raises(InvalidParameters) as exc:
             await handler.move_or_copy()
 
         assert exc.value.message == 'Auth action must be "copy", "move", or "rename", not "invalid"'
@@ -38,7 +39,7 @@ class TestMoveOrCopy:
     async def test_move_or_copy_invalid_path(self, handler):
         handler._json = {'action': 'copy'}
 
-        with pytest.raises(exceptions.InvalidParameters) as exc:
+        with pytest.raises(InvalidParameters) as exc:
             await handler.move_or_copy()
 
         assert exc.value.message == '"path" field is required for moves or copies'
@@ -46,7 +47,7 @@ class TestMoveOrCopy:
     @pytest.mark.asyncio
     async def test_move_or_copy_invalid_path_slash(self, handler):
         handler._json = {'action': 'copy', 'path': '/file'}
-        with pytest.raises(exceptions.InvalidParameters) as exc:
+        with pytest.raises(InvalidParameters) as exc:
             await handler.move_or_copy()
 
         assert exc.value.message == '"path" field requires a trailing' \
@@ -100,7 +101,7 @@ class TestMoveOrCopy:
     async def test_invalid_rename(self, handler):
         handler._json = {'action': 'rename', 'path': '/test_path/'}
 
-        with pytest.raises(exceptions.InvalidParameters) as exc:
+        with pytest.raises(InvalidParameters) as exc:
             await handler.move_or_copy()
 
         assert exc.value.message == '"rename" field is required for renaming'
@@ -110,7 +111,7 @@ class TestMoveOrCopy:
         handler._json = {'action': 'copy', 'path': '/'}
         handler.path = '/'
 
-        with pytest.raises(exceptions.InvalidParameters) as exc:
+        with pytest.raises(InvalidParameters) as exc:
             await handler.move_or_copy()
 
         assert exc.value.message == '"rename" field is required for copying root'
@@ -129,14 +130,18 @@ class TestMoveOrCopy:
         assert handler.dest_path == handler.path.parent
         assert handler.dest_resource == handler.resource
 
-        mock_make_provider.assert_called_with('test',
-                                              handler.auth['auth'],
-                                              handler.auth['credentials'],
-                                              handler.auth['settings'])
+        mock_make_provider.assert_called_with(
+            'test',
+            handler.auth['auth'],
+            handler.auth['credentials'],
+            handler.auth['settings']
+        )
         handler.write.assert_called_with(serialized_metadata)
         assert handler.dest_meta == mock_file_metadata
-        mock_celery.assert_called_with(celery_src_copy_params,
-                                       celery_dest_copy_params_root,
-                                       conflict='warn',
-                                       rename='renamed path',
-                                       request=serialized_request)
+        mock_celery.assert_called_with(
+            celery_src_copy_params,
+            celery_dest_copy_params_root,
+            conflict='warn',
+            rename='renamed path',
+            request=serialized_request
+        )

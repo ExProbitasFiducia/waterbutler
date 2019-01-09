@@ -93,10 +93,9 @@ class TestMetadataMixin:
 
         await handler.download_file()
 
-        assert handler._headers['Content-Length'] == bytes(str(mock_stream.size), 'latin-1')
-        assert handler._headers['Content-Type'] == bytes(mock_stream.content_type, 'latin-1')
-        disposition = b'attachment; filename*=UTF-8\'\'peanut-butter.docx'
-        assert handler._headers['Content-Disposition'] == disposition
+        assert handler._headers['Content-Length'] == str(mock_stream.size)
+        assert handler._headers['Content-Type'] == mock_stream.content_type
+        assert handler._headers['Content-Disposition'] == 'attachment; filename*=UTF-8\'\'peanut-butter.docx'
 
         handler.write_stream.assert_awaited_once()
 
@@ -108,10 +107,9 @@ class TestMetadataMixin:
 
         await handler.download_file()
 
-        assert handler._headers['Content-Length'] == bytes(str(mock_stream.size), 'latin-1')
-        assert handler._headers['Content-Type'] == bytes(mock_stream.content_type, 'latin-1')
-        disposition = b'attachment; filename*=UTF-8\'\'test_file'
-        assert handler._headers['Content-Disposition'] == disposition
+        assert handler._headers['Content-Length'] == str(mock_stream.size)
+        assert handler._headers['Content-Type'] == mock_stream.content_type
+        assert handler._headers['Content-Disposition'] == 'attachment; filename*=UTF-8\'\'test_file'
 
         handler.write_stream.assert_awaited_once()
 
@@ -130,10 +128,9 @@ class TestMetadataMixin:
 
         await handler.download_file()
 
-        assert handler._headers['Content-Length'] == bytes(str(mock_stream.size), 'latin-1')
-        assert handler._headers['Content-Type'] == bytes(mock_stream.content_type, 'latin-1')
-        disposition = b'attachment; filename*=UTF-8\'\'' + expected_name
-        assert handler._headers['Content-Disposition'] == disposition
+        assert handler._headers['Content-Length'] == str(mock_stream.size)
+        assert handler._headers['Content-Type'] == mock_stream.content_type
+        assert handler._headers['Content-Disposition'] == 'attachment; filename*=UTF-8\'\'' + expected_name.decode('utf-8')
 
         handler.write_stream.assert_awaited_once()
 
@@ -216,9 +213,8 @@ class TestMetadataMixin:
 
         await handler.download_folder_as_zip()
 
-        assert handler._headers['Content-Type'] == bytes('application/zip', 'latin-1')
-        expected = b'attachment; filename*=UTF-8\'\'test_file.zip'
-        assert handler._headers['Content-Disposition'] == expected
+        assert handler._headers['Content-Type'] == 'application/zip'
+        assert handler._headers['Content-Disposition'] == 'attachment; filename*=UTF-8\'\'test_file.zip'
 
         handler.write_stream.assert_called_once_with(mock_stream)
 
@@ -230,8 +226,7 @@ class TestMetadataMixin:
 
         await handler.download_folder_as_zip()
 
-        assert handler._headers['Content-Type'] == bytes('application/zip', 'latin-1')
-        expected = b'attachment; filename*=UTF-8\'\'MockProvider-archive.zip'
-        assert handler._headers['Content-Disposition'] == expected
+        assert handler._headers['Content-Type'] == 'application/zip'
+        assert handler._headers['Content-Disposition'] == 'attachment; filename*=UTF-8\'\'MockProvider-archive.zip'
 
         handler.write_stream.assert_called_once_with(mock_stream)

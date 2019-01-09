@@ -86,7 +86,7 @@ def mock_inner_provider():
     mock_provider.upload = utils.MockCoroutine()
     mock_provider.download = utils.MockCoroutine()
     mock_provider.metadata = utils.MockCoroutine()
-    mock_provider.validate_v1_path = utils.MockCoroutine()
+    mock_provider.validate_path = utils.MockCoroutine()
     mock_provider._children_metadata = utils.MockCoroutine()
 
     return mock_provider
